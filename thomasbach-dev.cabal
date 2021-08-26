@@ -8,28 +8,11 @@ synopsis:           My website
 homepage:           https://thomasbach.dev/
 
 -- A URL where users can report bugs.
--- bug-reports:
+bug-reports:        https://github.com/thomasbach-dev/thomasbach-dev.github.io/issues
 license:            BSD-3-Clause
 license-file:       LICENSE
 author:             Thomas Bach
 maintainer:         info@thomasbach.dev
-
--- A copyright notice.
--- copyright:
--- category:
-extra-source-files: CHANGELOG.md
-
-library
-    exposed-modules:  MyLib
-
-    -- Modules included in this library but not exported.
-    -- other-modules:
-
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-    build-depends:    base ^>=4.14.1.0
-    hs-source-dirs:   src
-    default-language: Haskell2010
 
 executable thomasbach-dev
     main-is:          Main.hs
@@ -40,15 +23,8 @@ executable thomasbach-dev
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     build-depends:
-        base ^>=4.14.1.0,
-        thomasbach-dev
+        base ^>=4.14,
+        hakyll
 
     hs-source-dirs:   app
     default-language: Haskell2010
-
-test-suite thomasbach-dev-test
-    default-language: Haskell2010
-    type:             exitcode-stdio-1.0
-    hs-source-dirs:   test
-    main-is:          MyLibTest.hs
-    build-depends:    base ^>=4.14.1.0
