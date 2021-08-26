@@ -5,12 +5,16 @@ import qualified GHC.IO.Encoding as E
 import           Data.Monoid     (mappend)
 import           Hakyll
 
+config :: Configuration
+config = defaultConfiguration
+  { destinationDirectory = "docs"
+  }
 
 --------------------------------------------------------------------------------
 main :: IO ()
 main = do
   E.setLocaleEncoding E.utf8
-  hakyll $ do
+  hakyllWith config $ do
     match "images/*" $ do
         route   idRoute
         compile copyFileCompiler
