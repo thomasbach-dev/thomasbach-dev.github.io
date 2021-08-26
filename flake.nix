@@ -9,7 +9,7 @@
       overlays = [ haskellNix.overlay
         (final: prev: {
           # This overlay adds our project to pkgs
-          thomasbachDev =
+          thomasbach-dev =
             final.haskell-nix.project' {
               src = ./.;
               compiler-nix-name = "ghc8105";
@@ -26,7 +26,7 @@
         })
       ];
       pkgs = import nixpkgs { inherit system overlays; };
-      flake = pkgs.thomasbachDev.flake {
+      flake = pkgs.thomasbach-dev.flake {
         # This adds support for `nix build .#js-unknown-ghcjs-cabal:hello:exe:hello`
         #crossPlatforms = p: [p.ghcjs];
       };
