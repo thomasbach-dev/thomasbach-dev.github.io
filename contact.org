@@ -1,0 +1,14 @@
+---
+title: Contact
+---
+
+You can email me personally via info at thomasbach dot dev. You can
+find my gpg key [[./static/info-at-thomasbach.dev.pub][here]].
+
++ [[https://twitter.com/thomasbach-dev][Twitter]]
+
++ [[https://www.linkedin.com/in/thomas-bach-5bb470148/][LinkedIn]]
+
++ [[https://github.com/thomasbach-dev/][GitHub]]
+
++ [[https://www.reddit.com/user/thomasbach/][Reddit]]

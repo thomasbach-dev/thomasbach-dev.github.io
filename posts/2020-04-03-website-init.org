@@ -1,0 +1,260 @@
+---
+title: Create and Publish a Website with Hakyll, HAProxy and NixOS
+---
+
+[[https://jaspervdj.be/hakyll/][Hakyll]] is a static site generator written in Haskell. This tutorial
+will give you first a summary on how to generate the base Hakyll site,
+second I will show you how to connect it with Nix and NixOS and in a
+last step we serve all of this via HAProxy.
+
+** Initialize the Project
+
+   First, of course, we have to initialize our project. In this case I
+   created a repository named ~website~ on GitHub, cloned the empty
+   repository and started from there. You need to have ~hakyll~
+   installed in order to have the ~hakyll-init~ command available.
+   #+begin_example
+     $ git clone git@github.com:thomasbach-dev/website.git
+     $ cd website
+     $ hakyll-init .
+     $ git add .
+     $ git commit -m 'initialized hakyll via hakyll-init'
+   #+end_example
+
+   Next, I generate ~website.nix~ (rename it to your projects name):
+   #+begin_example
+     $ cabal2nix . > website.nix
+   #+end_example
+
+   We reference that file in our ~shell.nix~:
+   #+begin_src nix
+     { nixpkgs ? import <nixpkgs> {}, compiler ? "default" }:
+     let
+       inherit (nixpkgs) pkgs;
+       haskellPackages = if compiler == "default"
+                         then pkgs.haskellPackages
+                         else pkgs.haskell.packages.${compiler};
+
+       drv = haskellPackages.callPackage ./website.nix { };
+     in
+     if pkgs.lib.inNixShell then drv.env else drv
+   #+end_src
+
+   Now we can jump into a ~nix-shell~ and run the site generator
+   called ~site~ for the first time:
+   #+begin_src
+   $ nix-shell
+   $ cabal new-run site
+   # [Compilation output]
+   Missing: COMMAND
+
+   Usage: site [-v|--verbose] COMMAND
+     site - Static site compiler created with Hakyll
+
+   Available options:
+     -h,--help                Show this help text
+     -v,--verbose             Run in verbose mode
+
+   Available commands:
+     build                    Generate the site
+     check                    Validate the site output
+     clean                    Clean up and remove cache
+     deploy                   Upload/deploy your site
+     preview                  [DEPRECATED] Please use the watch command
+     rebuild                  Clean and build again
+     server                   Start a preview server
+     watch                    Autocompile on changes and start a preview server.
+                              You can watch and recompile without running a server
+                              with --no-server.
+   #+end_src
+
+   So, let's give it a ~COMMAND~:
+   #+begin_example
+     $ cabal new-run site -- watch
+   #+end_example
+
+   This will build your site and watch for changes –everytime a file
+   changes it will rebuild the site. Additionally, it starts a server
+   which provides the site. Start up your browser of choice and guide
+   it to [[http://127.0.0.1:8000]].
+
+   Start producing content, adapting the default templates, etc.…
+
+** Define a nix derivation and plug it into NixOS
+
+   The next step will be to produce a derivation which nix can build
+   for us. Add a file ~default.nix~ with the following content,
+   adapted to your needs of course:
+   #+begin_src nix
+     { nixpkgs ? import <nixpkgs> {}, compiler ? "default"}:
+     let
+       inherit (nixpkgs) pkgs;
+       haskellPackages = if compiler == "default"
+                            then pkgs.haskellPackages
+                            else pkgs.haskell.packages.${compiler};
+       website = haskellPackages.callPackage ./website.nix {};
+     in
+     nixpkgs.stdenv.mkDerivation {
+       name = "thomas-bach.dev-website";
+       buildInputs = [ website ];
+       src = ./.;
+       buildPhase = ''
+         site build
+         '';
+       installPhase = ''
+         mkdir $out
+         cp -R _site/* $out
+         '';
+     }
+   #+end_src
+
+   This instructs nix to first build the Haskell executable of the
+   package called ~site~, then, in the build phase, to call that
+   executable with the command ~build~ and finally, in the install
+   phase, to copy the generated files into the store. With this file
+   in place you can run ~nix build~ in the directory and you should
+   get a symbolic link ~result~ pointing to the nix store containing
+   only the static website.
+
+   Now, to make this usable to NixOS we first need a place where it
+   can fetch the sources from. In my case I want this to be GitHub as
+   I will publish the code there anyway. To make this a bit more
+   easier I tag the commit, I want to publish with.
+   #+begin_example
+     $ git tag 1
+     $ git push --tags
+     $ nix-prefetch-url --unpack https://github.com/thomasbach-dev/website/archive/1.tar.gz
+     0df3j462103p8hzsa08pjfk5idipwg7nfgam1am4vyjk2q45ywlg
+   #+end_example
+
+   In your ~configuration.nix~ you can now define a package -e.g. in a
+   let-expression- like this:
+   #+begin_src nix
+     thomasbach-dev = import (pkgs.fetchFromGitHub {
+       owner = "thomasbach-dev";
+       repo = "website";
+       rev = "1";
+       sha256 = "0df3j462103p8hzsa08pjfk5idipwg7nfgam1am4vyjk2q45ywlg";
+     }) { nixpkgs = pkgs; };
+   #+end_src
+   and add that package to your ~environment.systemPackages~ list. In
+   my case this gives me a store entry with the suffix
+   ~thomas-bach.dev-website~ which contains just the static files of
+   the site.
+
+** Serve it with HAProxy   
+
+   Let's plug this into HAProxy as a final step! As HAProxy is
+   basically just a proxy, we need [[https://discourse.haproxy.org/t/how-do-i-serve-a-single-static-file-from-haproxy/32/11][a little trick]] to make it serve
+   static files: we define a LUA function which does the job for
+   us.
+   #+begin_src nix
+     {config, pkgs, ...}:
+         let
+           # https://discourse.haproxy.org/t/how-do-i-serve-a-single-static-file-from-haproxy/32/11
+           serveFile = builtins.toFile "serve-file.lua" ''
+             core.register_service("serve-file", "http", function(applet)
+               local docroot
+               local location
+               local file
+               local retval
+               local response
+               local extension
+        
+               if(applet.path == nil or applet.headers["x-lua-loadfile-docroot"] == nil or applet.headers["x-lua-loadfile-docroot"][0] == "") then
+                 retval = 500
+                 response = "Internal Server Error"
+               else
+                 docroot = applet.headers["x-lua-loadfile-docroot"][0]
+                 location = applet.path
+                 if(location == "" or location == "/") then
+                   location = "/index.html"
+                 end
+                 file = io.open(docroot .. location, "r")
+                 if(file == nil) then
+                   retval = 404
+                   response = "File Not Found"
+                 else
+                   retval = 200
+                   response = file:read("*all")
+                   file:close()
+                 end
+               end
+        
+               extension = string.match(location, ".(%w+)$")
+               if       extension == "css"  then applet:add_header("content-type", "text/css")
+                 elseif extension == "gif"  then applet:add_header("content-type", "image/gif")
+                 elseif extension == "htm"  then applet:add_header("content-type", "text/html")
+                 elseif extension == "html" then applet:add_header("content-type", "text/html")
+                 elseif extension == "ico"  then applet:add_header("content-type", "image/x-icon")
+                 elseif extension == "jpg"  then applet:add_header("content-type", "image/jpeg")
+                 elseif extension == "jpeg" then applet:add_header("content-type", "image/jpeg")
+                 elseif extension == "js"   then applet:add_header("content-type", "application/javascript; charset=UTF-8")
+                 elseif extension == "json" then applet:add_header("content-type", "application/json")
+                 elseif extension == "mpeg" then applet:add_header("content-type", "video/mpeg")
+                 elseif extension == "png"  then applet:add_header("content-type", "image/png")
+                 elseif extension == "txt"  then applet:add_header("content-type", "text/plain")
+                 elseif extension == "xml"  then applet:add_header("content-type", "application/xml")
+                 elseif extension == "zip"  then applet:add_header("content-type", "application/zip")
+               end
+        
+               applet:set_status(retval)
+               if(response ~= nil and response ~= "") then
+                 applet:add_header("content-length", string.len(response))
+               end
+               applet:start_response()
+               applet:send(response)
+             end)
+             '';
+           thomasbach-dev = import (pkgs.fetchFromGitHub {
+             owner = "thomasbach-dev";
+             repo = "website";
+             rev = "1";
+             sha256 = "0df3j462103p8hzsa08pjfk5idipwg7nfgam1am4vyjk2q45ywlg";
+           }) { nixpkgs = pkgs; };
+         in {
+           services.haproxy.enable = true;
+           systemd.services."copy-site".script = ''
+             rm -rf /var/lib/haproxy/thomasbach-dev
+             cp -r ${thomasbach-dev}/ /var/lib/haproxy/thomasbach-dev
+             '';
+           systemd.services.haproxy.requires = [ "copy-site.service" ];
+           services.haproxy.config = ''
+             global
+               lua-load ${serveFile}
+               chroot /var/lib/haproxy
+               user   haproxy
+               group  haproxy
+        
+             defaults
+               mode http
+               option httplog
+               timeout connect 5000ms
+               timeout client  50000ms
+               timeout server  50000ms
+        
+             backend www-thomasbach-dev
+               mode http
+               http-request set-header X-LUA-LOADFILE-DOCROOT /thomasbach-dev
+               http-request use-service lua.serve-file
+
+             frontend http-in
+               bind *:80
+               bind :::80
+
+               acl thomasbach-dev hdr_beg(host) -i thomasbach.dev
+               http-request redirect code 301 location http://www.%[hdr(host)]%[capture.req.uri] if thomasbach-dev
+               acl www-thomasbach-dev hdr_beg(host) -i www.thomasbach.dev
+               use_backend www-thomasbach-dev if www-thomasbach-dev
+             '';
+         };
+     }
+   #+end_src
+
+   Note how we reused the package definition given
+   above. Additionally, the configuration does a forward from
+   ~http://thomasbach.dev~ to ~http://www.thomasbach.dev~. You might
+   not want that. Also note that as we tell HAProxy to chroot into
+   ~/var/lib/haproxy~ we cannot simply point it to the static pages in
+   the store. Therefor I added a little systemd-script which copies
+   the files over. This is far from ideal, but does the trick for now.

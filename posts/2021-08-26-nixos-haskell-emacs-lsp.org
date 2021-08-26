@@ -1,0 +1,164 @@
+---
+title: Setting up Haskell LSP for Emacs on NixOS
+---
+
+I somehow managed to get [[https://github.com/haskell/haskell-language-server][Haskell Language Server]] running and play
+nicely together with Emacs. I'll briefly explain here what the bits
+and pieces where I had to put together.
+
+** Setup Overview
+
+   This will sound more complicated than it actually is. :)
+
+   So the basic idea is define your package as a [[https://nixos.wiki/wiki/Flakes][Nix Flake]]. I'm using
+   the [[https://input-output-hk.github.io/haskell.nix/][haskell.nix]] infrastructure by IOHK for this. The flake defines
+   the whole development environment including GHC, all libraries and
+   the Haskell language server. We'll use [[https://direnv.net/][direnv]] to load that
+   environment automatically when entering the project. Finally, we
+   will integrate direnv into Emacs so that it can pick up the right
+   tools, especially Haskell language server.
+
+** System setup
+
+   This is stuff that needs to go into your ~configuration.nix~:
+   #+begin_src nix
+     { config, pkgs, ... }:
+     let
+       # Define your own Emacs…
+       emacsBuild =
+         with (pkgs.emacsPackagesNgGen pkgs.emacs);
+         emacsWithPackages (epkgs: (with epkgs.melpaStablePackages;
+           [ # Needed to integrate with direnv
+             direnv
+             # Editing Haskell
+             haskell-mode
+             structured-haskell-mode
+           ]) ++ (with epkgs.melpaPackages; [
+             # Stuff which lsp wants
+             lsp-mode
+             lsp-ui
+             flycheck
+             company
+             lsp-treemacs
+             dap-mode
+             lsp-haskell
+             iedit
+           ]));
+     in
+     { # Start up an Emacs service. You can connect to it with emacsclient.
+       services.emacs = {
+         enable = true;
+         package = emacsBuild;
+       };
+       environment.systemPackages = [
+         # Add your own emacs to the system packages
+         emacsBuild
+         pkgs.direnv
+         # Add nix capabilities to direnv. This makes direnv play nicely
+         # with flake definitons.
+         pkgs.nix-direnv
+     
+         # Haskell dev tooling, you could also define these in your flake
+         # definition.
+         pkgs.haskellPackages.structured-haskell-mode
+         pkgs.haskellPackages.stylish-haskell
+         pkgs.hpack
+         pkgs.cabal-install
+         pkgs.cabal2nix
+         pkgs.haskellPackages.hlint
+         pkgs.ghc
+       ];
+     
+       # This is needed to integrate `nix-direnv` into `direnv`
+       environment.pathsToLink = [
+         "/share/nix-direnv"
+       ];
+       # See https://input-output-hk.github.io/haskell.nix/tutorials/getting-started-flakes/
+       nix = {
+         package = pkgs.nixFlakes;
+         extraOptions =
+           ''
+             # [...]
+             experimental-features = nix-command flakes
+             keep-outputs = true
+             keep-derivations = true
+           '';
+         # You definitely want these. Otherwise you will end up compiling a lot.
+         binaryCaches = [ "https://hydra.iohk.io" ];
+         binaryCachePublicKeys = [ "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=" ];
+       };
+     }
+   #+end_src
+
+** Init your first Project
+
+   Fine, we basically have everything we need on our system
+   now. Create new project by creating a directory and calling ~cabal
+   init --interactive~ in it. (I usually work with cabal, but haskell.nix
+   also plays nicely with stack.)
+
+   After that create a ~flake.nix~ alongside your ~.cabal~ file
+   basically using [[https://input-output-hk.github.io/haskell.nix/tutorials/getting-started-flakes/#scaffolding][this template]]. Now call ~nix shell~ inside this
+   directory. This will take some time while nix is pulling GHC and
+   compiling tools. Make yourself a coffee, maybe two. The first time
+   you are using this ensure that nix doesn't start compiling GHC. If
+   that's the case you did not set up the ~binaryCaches~ correctly. 
+
+   If this works you should be able to call ~haskell-language-server~
+   tailored to your projects GHC version. Nice!
+
+** Integrate Direnv
+
+   This is as easy as generating a file ~.envrc~ alongside your
+   ~flake.nix~ containing:
+   #+begin_example
+     use flake;
+   #+end_example
+   
+   After creating this file direnv will ask you to whitelist this
+   project using ~direnv allow~. Do it and ~nix~ will start again to
+   produce heat on your CPU. Note that this will only take some time
+   on the first run. Nix caches the results and all subsequent
+   environment loads will be finished in less than a second.
+
+** Set up Emacs
+
+   This is the snippet defining my Emacs setup:
+   #+begin_src elisp
+     (defun tbd-cfg-haskell ()
+       (add-hook 'haskell-literate-mode-hook #'lsp-deferred)
+       (add-hook 'haskell-mode-hook #'lsp-deferred)
+       (add-hook 'haskell-mode-hook
+                 (lambda ()
+                   (define-key haskell-mode-map (kbd "C-c C-d") 'haskell-compile)
+                   (when (and (bound-and-true-p haskell-indentation-mode)
+                              (fboundp 'haskell-indentation-mode))
+                     (haskell-indentation-mode 0))
+                   (setq haskell-compiler-type 'cabal)
+                   (setq haskell-process-type 'cabal)
+                   (setq haskell-stylish-on-save 't)
+                   (direnv-mode)
+                   (structured-haskell-mode)
+                   (interactive-haskell-mode)
+                   (haskell-decl-scan-mode)
+                   (setq lsp-haskell-server-path "haskell-language-server"
+                         lsp-haskell-formatting-provider "stylish-haskell")
+                   (lsp-treemacs-sync-mode 1))))
+     
+     ;; […]
+     (tbd-cfg-haskell)
+   #+end_src
+
+   You probably don't want all of that. But things work smoothly for
+   me with these settings and I'm too lazy to tear them apart to see
+   which ones will provide the bare minimum. If you have enabled
+   ~services.emacs.enable~ as me above, then don't forget to execute
+   ~systemctl --user restart emacs~ after altering the config file.
+
+   Spin up your Emacs and visit one of the Haskell source files in
+   your project. If ~lsp~ doesn't start automatically, do ~M-x lsp~
+   and import the project for the first time.
+
+   Eventually Emacs/direnv won't notice changes you did to the cabal
+   file. Use ~M-x direnv-update-environment~ and eventually ~M-x
+   lsp-workspace-restart~ to get back on track then.
