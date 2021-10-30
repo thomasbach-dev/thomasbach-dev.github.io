@@ -3,3 +3,4 @@ _cache/
 
 # Cabal related
 dist-newstyle/
+cabal.project.local*
