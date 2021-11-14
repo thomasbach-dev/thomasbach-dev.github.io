@@ -1,8 +1,10 @@
 {
   description = "my website";
-  inputs.haskellNix.url = "github:input-output-hk/haskell.nix";
-  inputs.nixpkgs.follows = "haskellNix/nixpkgs-2105";
-  inputs.flake-utils.url = "github:numtide/flake-utils";
+  inputs = {
+    haskellNix.url = "github:input-output-hk/haskell.nix/f3b109b2fb54274d52c51419167db461d74ec51c";
+    nixpkgs.follows = "haskellNix/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils/997f7efcb746a9c140ce1f13c72263189225f482";
+  };
   outputs = { self, nixpkgs, flake-utils, haskellNix }:
     flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system:
     let
@@ -12,7 +14,7 @@
           thomasbach-dev =
             final.haskell-nix.project' {
               src = ./.;
-              compiler-nix-name = "ghc8105";
+              compiler-nix-name = "ghc8107";
               # This is used by `nix develop .` to open a shell for use with
               # `cabal`, `hlint` and `haskell-language-server`
               shell.tools = {
