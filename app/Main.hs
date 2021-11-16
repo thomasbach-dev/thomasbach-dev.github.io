@@ -1,9 +1,8 @@
-module Main where
+module Main (main) where
 
 import qualified GHC.IO.Encoding as E
 
-import           Data.Monoid     (mappend)
-import           Hakyll
+import Hakyll
 
 config :: Configuration
 config = defaultConfiguration
