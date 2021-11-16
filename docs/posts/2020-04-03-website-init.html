@@ -185,7 +185,7 @@ $ nix-prefetch-url --unpack https://github.com/thomasbach-dev/website/archive/1.
 <span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a>      <span class="ex">services.haproxy.enable</span> = true<span class="kw">;</span></span>
 <span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a>      <span class="ex">systemd.services.</span><span class="st">&quot;copy-site&quot;</span><span class="ex">.script</span> = <span class="st">''</span></span>
 <span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a>        <span class="fu">rm</span> <span class="at">-rf</span> /var/lib/haproxy/thomasbach-dev</span>
-<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a>        <span class="fu">cp</span> <span class="at">-r</span> <span class="va">${thomasbach</span><span class="er">-dev</span><span class="va">}</span>/ /var/lib/haproxy/thomasbach-dev</span>
+<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a>        <span class="fu">cp</span> <span class="at">-r</span> <span class="va">${thomasbach</span><span class="op">-</span>dev<span class="va">}</span>/ /var/lib/haproxy/thomasbach-dev</span>
 <span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a>        <span class="st">''</span><span class="kw">;</span></span>
 <span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a>      <span class="ex">systemd.services.haproxy.requires</span> = [ <span class="st">&quot;copy-site.service&quot;</span> ]<span class="kw">;</span></span>
 <span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a>      <span class="ex">services.haproxy.config</span> = <span class="st">''</span></span>
