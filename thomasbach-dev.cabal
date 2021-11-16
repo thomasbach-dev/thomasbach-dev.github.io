@@ -14,10 +14,37 @@ license-file:       LICENSE
 author:             Thomas Bach
 maintainer:         info@thomasbach.dev
 
-executable thomasbach-dev
-    main-is:        Main.hs
+common general-settings
     build-depends:  base
-                  , hakyll
-    hs-source-dirs: app
+                  , lens
+                  , text
+                  , witch
     default-language: Haskell2010
-    default-extensions: OverloadedStrings
+    default-extensions: LambdaCase
+                      , MultiParamTypeClasses
+                      , OverloadedStrings
+                      , RankNTypes
+                      , ScopedTypeVariables
+                      , TypeApplications
+    ghc-options:    -Wall
+                    -Wcompat
+                    -Wincomplete-record-updates
+                    -Wincomplete-uni-patterns
+                    -Wredundant-constraints
+                    -Wno-orphans                      
+                       
+executable thomasbach-dev
+    import:         general-settings
+    main-is:        Main.hs
+    build-depends:  hakyll
+    hs-source-dirs: app
+
+library
+    import:         general-settings
+    exposed-modules: TextualRepresentationWithWitch.Example1
+                   , TextualRepresentationWithWitch.Example2
+    build-depends:  aeson
+                  , gogol-firestore
+                  , servant ^>= 0.16
+    hs-source-dirs: snippets
+    ghc-options:    -Wno-missing-home-modules
