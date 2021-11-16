@@ -1,0 +1,155 @@
+---
+title: Textual Representation in Haskell with Witch
+---
+
+I have been working lately on a web API where a JSON field of type string is parsed and then later
+stored to Google Firestore. For JSON de-/encoding I use [[https://hackage.haskell.org/package/aeson][aeson]], for interaction with Firestore
+[[https://hackage.haskell.org/package/gogol-firestore][gogol-firestore]] both work as expected, but there is an odd thing:
+
+#+INCLUDE: "/home/vince/thomasbach-dev/toying/thomasbach-dev.github.io/snippets/TextualRepresentationWithWitch/Example1.hs" src haskell
+
+#+begin_src haskell
+  module TextualRepresentationWithWitch.Example1 where
+
+  import qualified Data.Aeson as A
+  import qualified Data.Text as T
+  import qualified Network.Google.FireStore as F
+
+  import Control.Lens ((&), (?~))
+
+  data Pet = Cat
+           | Dog
+           deriving (Eq, Show)
+
+  instance A.ToJSON Pet where
+    toJSON Cat = A.String "cat"
+    toJSON Dog = A.String "dog"
+
+  instance A.FromJSON Pet where
+    parseJSON = A.withText "Pet" $
+      \case
+         "cat" -> pure Cat
+         "dog" -> pure Dog
+         s -> fail $ "Not a known pet: " <> show s
+
+  -- | Turn something into a field of a 'F.Document'.
+  class ToField a where
+    toField :: a -> F.Value
+
+  instance ToField T.Text where
+    toField v = F.value & F.vStringValue ?~ v
+
+  instance ToField Pet where
+    toField Cat = toField @T.Text "cat"
+    toField Dog = toField @T.Text "dog"
+
+#+end_src
+
+We have the strings for textual representation, like ~"cat"~, repeated three times! If I want to
+read things back from Firestore I will have to do this once more. This is error prone: As I want the
+textual representation of a ~Pet~ to be the same in all places I have to remind myself somehow when
+I update one instance to also update the other. This seems to sound like a minor issue in this case,
+but it turns nasty as we add more pets or need a textual representation of a ~Pet~ in more places.
+
+The first thing we can do about this, obviously, is to have one common place where a ~Pet~ is turned
+into its textual representation:
+
+#+begin_src haskell
+  petAsString :: Pet -> T.Text
+  petAsString Cat = "cat"
+  petAsString Dog = "dog"
+#+end_src
+
+then the ~ToField Pet~ instance becomes ~toField = toField . petAsString~ and ~ToJSON Pet~ becomes
+~toJSON = A.String . petAsString~. That addresses the issue in one direction, going from ~Pet~ to
+textual. What about the other direction, from textual to ~Pet~? We face a problem here – as
+conversion from a string to a ~Pet~ object is partial: What is the right way to fail?
+
+The rather fresh [[https://hackage.haskell.org/package/witch][witch]] library provides type classes for exactly these two kinds of
+conversions. Namely [[https://hackage.haskell.org/package/witch-0.3.4.0/docs/Witch.html#t:From][From]] for a conversion which is total and [[https://hackage.haskell.org/package/witch-0.3.4.0/docs/Witch.html#t:TryFrom][TryFrom]] for a partial conversion. Lets
+see what the code looks like if we use it:
+
+#+begin_src haskell
+  module TextualRepresentationWithWitch.Example2 where
+
+  import qualified Data.Aeson as A
+  import qualified Data.Text as T
+  import qualified Network.Google.FireStore as F
+  import qualified Witch
+
+  import Control.Lens ((&), (?~))
+  import Data.Proxy (Proxy(..))
+  import Data.Typeable (Typeable, typeRep)
+
+  data Pet = Cat
+           | Dog
+           deriving (Eq, Show)
+
+  instance Witch.From Pet T.Text where
+    from Cat = "cat"
+    from Dog = "dog"
+
+  instance Witch.TryFrom T.Text Pet where
+    tryFrom = Witch.maybeTryFrom convert
+      where
+       convert "cat" = pure Cat
+       convert "dog" = pure Dog
+       convert _ = Nothing
+
+  instance A.ToJSON Pet where
+    toJSON = A.String . Witch.from
+
+  instance A.FromJSON Pet where
+    parseJSON = A.withText "Pet" failFrom
+
+  instance Witch.From T.Text F.Value where
+    from v = F.value & F.vStringValue ?~ v
+
+  failFrom :: forall tgt src m. (Typeable tgt, MonadFail m, Witch.TryFrom src tgt)
+           => src -> m tgt
+  failFrom source = case Witch.tryFrom source of
+                      Right target -> pure target
+                      Left _       -> fail $ "Not a valid " <> show (typeRep (Proxy @tgt))
+
+#+end_src
+
+There are two things to note here. First, it looks way more complicated, doesn't it? But that's
+actually just because of ~failFrom~, right? We look at that in a second. Furthermore, the ~ToField~
+class is gone. That is because we really do not need it anymore as we have a better abstraction now:
+We just told ~witch~ how to represent something of type ~T.Text~ as a ~F.Value~. From now on we can
+simply use this:
+
+#+begin_example
+  > Witch.via @T.Text Cat :: F.Value
+  Value' { …, _vStringValue = Just "cat", … }
+#+end_example
+
+and it will work for everything we have a textual representation for. You can also use the above and
+wrap it up in a ~Witch.From Pet F.Value~ instance.
+
+Now for that weird looking thing called ~failFrom~: The complicated type signature simply stems from
+the fact that I wanted a nice representation of the type I want to convert into:
+
+#+begin_example
+  > A.eitherDecode "\"cat\"" :: Either String Pet
+  Right Cat
+  > A.eitherDecode "\"lion\"" :: Either String Pet
+  Left "Error in $: Not a valid Pet"
+#+end_example
+
+We could have written this in a much lighter way:
+#+begin_src haskell
+  failFrom2 :: (MonadFail m, Witch.TryFrom src tgt) => src -> m tgt
+  failFrom2 = either (const (fail "Not a valid value")) pure . Witch.tryFrom
+#+end_src
+but that would just give us ~"Error in $: Not a valid value"~ as error message.
+
+As I introduced ~witch~ I encountered more cases where I was actually just converting objects from
+one representation into another one, either by introducing extra functions like ~petAsString~ or by
+using type classes like ~ToField~. And these cases were not just about textual representation.
+
+Using ~witch~ simplified things a lot for two reasons. First, I don't have to remember or look up
+the names of these conversion functions anymore. It is all just ~Witch.from~. Second, there is a
+common interface now how to do conversions. I use this as a base. With some tooling for the
+specific problem domain, like ~failFrom~ for conversions to ~aeson~ instances, writing instances
+become one-liners, is really easy and coherent.
