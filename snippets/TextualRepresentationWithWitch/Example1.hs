@@ -2,9 +2,7 @@ module TextualRepresentationWithWitch.Example1 where
 
 import qualified Data.Aeson as A
 import qualified Data.Text as T
-import qualified Network.Google.FireStore as F
-
-import Control.Lens ((&), (?~))
+import qualified Gogol.FireStore as F
 
 data Pet = Cat
          | Dog
@@ -26,7 +24,7 @@ class ToField a where
   toField :: a -> F.Value
 
 instance ToField T.Text where
-  toField v = F.value & F.vStringValue ?~ v
+  toField v = F.newValue { F.stringValue = Just v }
 
 instance ToField Pet where
   toField Cat = toField @T.Text "cat"

@@ -16,7 +16,6 @@ maintainer:         info@thomasbach.dev
 
 common general-settings
     build-depends:  base
-                  , lens
                   , text
                   , witch
     default-language: Haskell2010
@@ -36,7 +35,7 @@ common general-settings
 executable thomasbach-dev
     import:         general-settings
     main-is:        Main.hs
-    build-depends:  hakyll
+    build-depends:  hakyll >= 4.15
     hs-source-dirs: app
 
 library
@@ -45,6 +44,6 @@ library
                    , TextualRepresentationWithWitch.Example2
     build-depends:  aeson
                   , gogol-firestore
-                  , servant ^>= 0.16
+                  , servant
     hs-source-dirs: snippets
     ghc-options:    -Wno-missing-home-modules

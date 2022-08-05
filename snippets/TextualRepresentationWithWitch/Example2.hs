@@ -2,10 +2,9 @@ module TextualRepresentationWithWitch.Example2 where
 
 import qualified Data.Aeson as A
 import qualified Data.Text as T
-import qualified Network.Google.FireStore as F
+import qualified Gogol.FireStore as F
 import qualified Witch
 
-import Control.Lens ((&), (?~))
 import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, typeRep)
 
@@ -31,7 +30,7 @@ instance A.FromJSON Pet where
   parseJSON = A.withText "Pet" failFrom
 
 instance Witch.From T.Text F.Value where
-  from v = F.value & F.vStringValue ?~ v
+  from v = F.newValue { F.stringValue = Just v }
 
 failFrom :: forall tgt src m. (Typeable tgt, MonadFail m, Witch.TryFrom src tgt)
          => src -> m tgt

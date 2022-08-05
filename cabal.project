@@ -1,0 +1,13 @@
+packages: *.cabal
+with-compiler: ghc-9.2.3
+
+source-repository-package
+  type: git
+  location: https://github.com/brendanhay/gogol
+  -- 2d3d9319b1a57c4a0a565637102d74420bcb6a0f
+  tag:a574b37b5c8f3c83b0dbd171be9c5e4e2b3258e8
+  subdir:
+    core
+    gogol
+    gogol-firestore
+    gogol-cloudtasks
