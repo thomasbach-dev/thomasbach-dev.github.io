@@ -26,7 +26,9 @@
         
     </section>
     <section>
-        <p>I have been working lately on a web API where a JSON field of type string is parsed and then later stored to Google Firestore. For JSON de-/encoding I use <a href="https://hackage.haskell.org/package/aeson">aeson</a>, for interaction with Firestore <a href="https://hackage.haskell.org/package/gogol-firestore">gogol-firestore</a> both work as expected, but there is an odd thing:</p>
+        <p>I have been working lately on a web API where a JSON field of type string is parsed and then later
+stored to Google Firestore. For JSON de-/encoding I use <a href="https://hackage.haskell.org/package/aeson">aeson</a>, for interaction with Firestore
+<a href="https://hackage.haskell.org/package/gogol-firestore">gogol-firestore</a> both work as expected, but there is an odd thing:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"></code></pre></div>
 <div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span> <span class="dt">TextualRepresentationWithWitch.Example1</span> <span class="kw">where</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -62,13 +64,23 @@
 <span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  toField <span class="dt">Cat</span> <span class="ot">=</span> toField <span class="op">@</span><span class="dt">T.Text</span> <span class="st">&quot;cat&quot;</span></span>
 <span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  toField <span class="dt">Dog</span> <span class="ot">=</span> toField <span class="op">@</span><span class="dt">T.Text</span> <span class="st">&quot;dog&quot;</span></span>
 <span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a></span></code></pre></div>
-<p>We have the strings for textual representation, like <code>"cat"</code>, repeated three times! If I want to read things back from Firestore I will have to do this once more. This is error prone: As I want the textual representation of a <code>Pet</code> to be the same in all places I have to remind myself somehow when I update one instance to also update the other. This seems to sound like a minor issue in this case, but it turns nasty as we add more pets or need a textual representation of a <code>Pet</code> in more places.</p>
-<p>The first thing we can do about this, obviously, is to have one common place where a <code>Pet</code> is turned into its textual representation:</p>
+<p>We have the strings for textual representation, like <code>"cat"</code>, repeated three times! If I want to
+read things back from Firestore I will have to do this once more. This is error prone: As I want the
+textual representation of a <code>Pet</code> to be the same in all places I have to remind myself somehow when
+I update one instance to also update the other. This seems to sound like a minor issue in this case,
+but it turns nasty as we add more pets or need a textual representation of a <code>Pet</code> in more places.</p>
+<p>The first thing we can do about this, obviously, is to have one common place where a <code>Pet</code> is turned
+into its textual representation:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">petAsString ::</span> <span class="dt">Pet</span> <span class="ot">-&gt;</span> <span class="dt">T.Text</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>petAsString <span class="dt">Cat</span> <span class="ot">=</span> <span class="st">&quot;cat&quot;</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>petAsString <span class="dt">Dog</span> <span class="ot">=</span> <span class="st">&quot;dog&quot;</span></span></code></pre></div>
-<p>then the <code>ToField Pet</code> instance becomes <code>toField = toField . petAsString</code> and <code>ToJSON Pet</code> becomes <code>toJSON = A.String . petAsString</code>. That addresses the issue in one direction, going from <code>Pet</code> to textual. What about the other direction, from textual to <code>Pet</code>? We face a problem here – as conversion from a string to a <code>Pet</code> object is partial: What is the right way to fail?</p>
-<p>The rather fresh <a href="https://hackage.haskell.org/package/witch">witch</a> library provides type classes for exactly these two kinds of conversions. Namely <a href="https://hackage.haskell.org/package/witch-0.3.4.0/docs/Witch.html#t:From">From</a> for a conversion which is total and <a href="https://hackage.haskell.org/package/witch-0.3.4.0/docs/Witch.html#t:TryFrom">TryFrom</a> for a partial conversion. Lets see what the code looks like if we use it:</p>
+<p>then the <code>ToField Pet</code> instance becomes <code>toField = toField . petAsString</code> and <code>ToJSON Pet</code> becomes
+<code>toJSON = A.String . petAsString</code>. That addresses the issue in one direction, going from <code>Pet</code> to
+textual. What about the other direction, from textual to <code>Pet</code>? We face a problem here – as
+conversion from a string to a <code>Pet</code> object is partial: What is the right way to fail?</p>
+<p>The rather fresh <a href="https://hackage.haskell.org/package/witch">witch</a> library provides type classes for exactly these two kinds of
+conversions. Namely <a href="https://hackage.haskell.org/package/witch-0.3.4.0/docs/Witch.html#t:From">From</a> for a conversion which is total and <a href="https://hackage.haskell.org/package/witch-0.3.4.0/docs/Witch.html#t:TryFrom">TryFrom</a> for a partial conversion. Lets
+see what the code looks like if we use it:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span> <span class="dt">TextualRepresentationWithWitch.Example2</span> <span class="kw">where</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Aeson</span> <span class="kw">as</span> <span class="dt">A</span></span>
@@ -110,12 +122,18 @@
 <span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>                    <span class="dt">Right</span> target <span class="ot">-&gt;</span> <span class="fu">pure</span> target</span>
 <span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>                    <span class="dt">Left</span> _       <span class="ot">-&gt;</span> <span class="fu">fail</span> <span class="op">$</span> <span class="st">&quot;Not a valid &quot;</span> <span class="op">&lt;&gt;</span> <span class="fu">show</span> (typeRep (<span class="dt">Proxy</span> <span class="op">@</span>tgt))</span>
 <span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a></span></code></pre></div>
-<p>There are two things to note here. First, it looks way more complicated, doesn’t it? But that’s actually just because of <code>failFrom</code>, right? We look at that in a second. Furthermore, the <code>ToField</code> class is gone. That is because we really do not need it anymore as we have a better abstraction now: We just told <code>witch</code> how to represent something of type <code>T.Text</code> as a <code>F.Value</code>. From now on we can simply use this:</p>
+<p>There are two things to note here. First, it looks way more complicated, doesn’t it? But that’s
+actually just because of <code>failFrom</code>, right? We look at that in a second. Furthermore, the <code>ToField</code>
+class is gone. That is because we really do not need it anymore as we have a better abstraction now:
+We just told <code>witch</code> how to represent something of type <code>T.Text</code> as a <code>F.Value</code>. From now on we can
+simply use this:</p>
 <pre class="example"><code>&gt; Witch.via @T.Text Cat :: F.Value
 Value' { …, _vStringValue = Just &quot;cat&quot;, … }
 </code></pre>
-<p>and it will work for everything we have a textual representation for. You can also use the above and wrap it up in a <code>Witch.From Pet F.Value</code> instance.</p>
-<p>Now for that weird looking thing called <code>failFrom</code>: The complicated type signature simply stems from the fact that I wanted a nice representation of the type I want to convert into:</p>
+<p>and it will work for everything we have a textual representation for. You can also use the above and
+wrap it up in a <code>Witch.From Pet F.Value</code> instance.</p>
+<p>Now for that weird looking thing called <code>failFrom</code>: The complicated type signature simply stems from
+the fact that I wanted a nice representation of the type I want to convert into:</p>
 <pre class="example"><code>&gt; A.eitherDecode &quot;\&quot;cat\&quot;&quot; :: Either String Pet
 Right Cat
 &gt; A.eitherDecode &quot;\&quot;lion\&quot;&quot; :: Either String Pet
@@ -125,8 +143,14 @@ Left &quot;Error in $: Not a valid Pet&quot;
 <div class="sourceCode" id="cb7"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ot">failFrom2 ::</span> (<span class="dt">MonadFail</span> m, <span class="dt">Witch.TryFrom</span> src tgt) <span class="ot">=&gt;</span> src <span class="ot">-&gt;</span> m tgt</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>failFrom2 <span class="ot">=</span> <span class="fu">either</span> (<span class="fu">const</span> (<span class="fu">fail</span> <span class="st">&quot;Not a valid value&quot;</span>)) <span class="fu">pure</span> <span class="op">.</span> Witch.tryFrom</span></code></pre></div>
 <p>but that would just give us <code>"Error in $: Not a valid value"</code> as error message.</p>
-<p>As I introduced <code>witch</code> I encountered more cases where I was actually just converting objects from one representation into another one, either by introducing extra functions like <code>petAsString</code> or by using type classes like <code>ToField</code>. And these cases were not just about textual representation.</p>
-<p>Using <code>witch</code> simplified things a lot for two reasons. First, I don’t have to remember or look up the names of these conversion functions anymore. It is all just <code>Witch.from</code>. Second, there is a common interface now how to do conversions. I use this as a base. With some tooling for the specific problem domain, like <code>failFrom</code> for conversions to <code>aeson</code> instances, writing instances become one-liners, is really easy and coherent.</p>
+<p>As I introduced <code>witch</code> I encountered more cases where I was actually just converting objects from
+one representation into another one, either by introducing extra functions like <code>petAsString</code> or by
+using type classes like <code>ToField</code>. And these cases were not just about textual representation.</p>
+<p>Using <code>witch</code> simplified things a lot for two reasons. First, I don’t have to remember or look up
+the names of these conversion functions anymore. It is all just <code>Witch.from</code>. Second, there is a
+common interface now how to do conversions. I use this as a base. With some tooling for the
+specific problem domain, like <code>failFrom</code> for conversions to <code>aeson</code> instances, writing instances
+become one-liners, is really easy and coherent.</p>
     </section>
 </article>
 

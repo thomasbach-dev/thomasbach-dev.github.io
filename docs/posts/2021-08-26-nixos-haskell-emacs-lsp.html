@@ -26,88 +26,109 @@
         
     </section>
     <section>
-        <p>I somehow managed to get <a href="https://github.com/haskell/haskell-language-server">Haskell Language Server</a> running and play nicely together with Emacs. I’ll briefly explain here what the bits and pieces where I had to put together.</p>
+        <p>I somehow managed to get <a href="https://github.com/haskell/haskell-language-server">Haskell Language Server</a> running and play
+nicely together with Emacs. I’ll briefly explain here what the bits
+and pieces where I had to put together.</p>
 <h2 id="setup-overview">Setup Overview</h2>
 <p>This will sound more complicated than it actually is. :)</p>
-<p>So the basic idea is define your package as a <a href="https://nixos.wiki/wiki/Flakes">Nix Flake</a>. I’m using the <a href="https://input-output-hk.github.io/haskell.nix/">haskell.nix</a> infrastructure by IOHK for this. The flake defines the whole development environment including GHC, all libraries and the Haskell language server. We’ll use <a href="https://direnv.net/">direnv</a> to load that environment automatically when entering the project. Finally, we will integrate direnv into Emacs so that it can pick up the right tools, especially Haskell language server.</p>
+<p>So the basic idea is define your package as a <a href="https://nixos.wiki/wiki/Flakes">Nix Flake</a>. I’m using
+the <a href="https://input-output-hk.github.io/haskell.nix/">haskell.nix</a> infrastructure by IOHK for this. The flake defines
+the whole development environment including GHC, all libraries and
+the Haskell language server. We’ll use <a href="https://direnv.net/">direnv</a> to load that
+environment automatically when entering the project. Finally, we
+will integrate direnv into Emacs so that it can pick up the right
+tools, especially Haskell language server.</p>
 <h2 id="system-setup">System setup</h2>
 <p>This is stuff that needs to go into your <code>configuration.nix</code>:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">{</span> <span class="ex">config,</span> pkgs, ... }:</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">let</span></span>
+<div class="sourceCode" id="cb1"><pre class="sourceCode nix"><code class="sourceCode nix"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="op">{</span> <span class="va">config</span><span class="op">,</span> <span class="va">pkgs</span><span class="op">,</span> <span class="op">...</span> <span class="op">}</span>:</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Define your own Emacs…</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="ex">emacsBuild</span> =</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="ex">with</span> <span class="er">(</span><span class="ex">pkgs.emacsPackagesNgGen</span> pkgs.emacs<span class="kw">);</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="ex">emacsWithPackages</span> <span class="er">(</span><span class="ex">epkgs:</span> <span class="er">(</span><span class="ex">with</span> epkgs.melpaStablePackages<span class="kw">;</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="bu">[</span> # Needed to <span class="er">integrate</span> <span class="ex">with</span> direnv</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="ex">direnv</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="va">emacsBuild</span> <span class="op">=</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">with</span> <span class="op">(</span>pkgs.emacsPackagesNgGen pkgs.emacs<span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    emacsWithPackages <span class="op">(</span><span class="va">epkgs</span><span class="op">:</span> <span class="op">(</span><span class="kw">with</span> epkgs.melpaStablePackages<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="op">[</span> <span class="co"># Needed to integrate with direnv</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        direnv</span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Editing Haskell</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="ex">haskell-mode</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="ex">structured-haskell-mode</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="ex">]</span><span class="kw">)</span> <span class="ex">++</span> <span class="er">(</span><span class="ex">with</span> epkgs.melpaPackages<span class="kw">;</span> <span class="bu">[</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        # Stuff which <span class="er">lsp</span> <span class="ex">wants</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="ex">lsp-mode</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="ex">lsp-ui</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="ex">flycheck</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="ex">company</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="ex">lsp-treemacs</span></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="ex">dap-mode</span></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="ex">lsp-haskell</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="ex">iedit</span></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>      <span class="ex">]</span><span class="kw">));</span></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="er">in</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="kw">{</span> <span class="co"># Start up an Emacs service. You can connect to it with emacsclient.</span></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="ex">services.emacs</span> = {</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="bu">enable</span> = true<span class="kw">;</span></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="ex">package</span> = emacsBuild<span class="kw">;</span></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="kw">};</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="ex">environment.systemPackages</span> = [</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        haskell-mode</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        structured-haskell-mode</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="op">])</span> <span class="op">++</span> <span class="op">(</span><span class="kw">with</span> epkgs.melpaPackages<span class="op">;</span> <span class="op">[</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Stuff which lsp wants</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        lsp-mode</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        lsp-ui</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        flycheck</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        company</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        lsp-treemacs</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        dap-mode</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        lsp-haskell</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        iedit</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>      <span class="op">]));</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="kw">in</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="op">{</span> <span class="co"># Start up an Emacs service. You can connect to it with emacsclient.</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="va">services</span>.<span class="va">emacs</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="va">enable</span> <span class="op">=</span> <span class="cn">true</span><span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="va">package</span> <span class="op">=</span> emacsBuild<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="op">};</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="va">environment</span>.<span class="va">systemPackages</span> <span class="op">=</span> <span class="op">[</span></span>
 <span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add your own emacs to the system packages</span></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    <span class="ex">emacsBuild</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="ex">pkgs.direnv</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    emacsBuild</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    pkgs.direnv</span>
 <span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add nix capabilities to direnv. This makes direnv play nicely</span></span>
 <span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="co"># with flake definitons.</span></span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    <span class="ex">pkgs.nix-direnv</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    pkgs.nix-direnv</span>
 <span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Haskell dev tooling, you could also define these in your flake</span></span>
 <span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="co"># definition.</span></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="ex">pkgs.haskellPackages.structured-haskell-mode</span></span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    <span class="ex">pkgs.haskellPackages.stylish-haskell</span></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    <span class="ex">pkgs.hpack</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    <span class="ex">pkgs.cabal-install</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>    <span class="ex">pkgs.cabal2nix</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    <span class="ex">pkgs.haskellPackages.hlint</span></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="ex">pkgs.ghc</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="ex">]</span><span class="kw">;</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    pkgs.haskellPackages.structured-haskell-mode</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    pkgs.haskellPackages.stylish-haskell</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    pkgs.hpack</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    pkgs.cabal-install</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>    pkgs.cabal2nix</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    pkgs.haskellPackages.hlint</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    pkgs.ghc</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="op">];</span></span>
 <span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>  <span class="co"># This is needed to integrate `nix-direnv` into `direnv`</span></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>  <span class="ex">environment.pathsToLink</span> = [</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>  <span class="va">environment</span>.<span class="va">pathsToLink</span> <span class="op">=</span> <span class="op">[</span></span>
 <span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;/share/nix-direnv&quot;</span></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>  <span class="ex">]</span><span class="kw">;</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>  <span class="op">];</span></span>
 <span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>  <span class="co"># See https://input-output-hk.github.io/haskell.nix/tutorials/getting-started-flakes/</span></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>  <span class="ex">nix</span> = {</span>
-<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>    <span class="ex">package</span> = pkgs.nixFlakes<span class="kw">;</span></span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>    <span class="ex">extraOptions</span> =</span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>  <span class="va">nix</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>    <span class="va">package</span> <span class="op">=</span> pkgs.nixFlakes<span class="op">;</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>    <span class="va">extraOptions</span> <span class="op">=</span></span>
 <span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>      <span class="st">''</span></span>
-<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>        <span class="co"># [...]</span></span>
-<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>        <span class="ex">experimental-features</span> = nix-command flakes</span>
-<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>        <span class="ex">keep-outputs</span> = true</span>
-<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>        <span class="ex">keep-derivations</span> = true</span>
-<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>      <span class="st">''</span><span class="kw">;</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="st">        # [...]</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a><span class="st">        experimental-features = nix-command flakes</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a><span class="st">        keep-outputs = true</span></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a><span class="st">        keep-derivations = true</span></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="st">      ''</span><span class="op">;</span></span>
 <span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>    <span class="co"># You definitely want these. Otherwise you will end up compiling a lot.</span></span>
-<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>    <span class="ex">binaryCaches</span> = [ <span class="st">&quot;https://hydra.iohk.io&quot;</span> ]<span class="kw">;</span></span>
-<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>    <span class="ex">binaryCachePublicKeys</span> = [ <span class="st">&quot;hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=&quot;</span> ]<span class="kw">;</span></span>
-<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>  <span class="kw">};</span></span>
-<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a><span class="er">}</span></span></code></pre></div>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>    <span class="va">binaryCaches</span> <span class="op">=</span> <span class="op">[</span> <span class="st">&quot;https://hydra.iohk.io&quot;</span> <span class="op">];</span></span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>    <span class="va">binaryCachePublicKeys</span> <span class="op">=</span> <span class="op">[</span> <span class="st">&quot;hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=&quot;</span> <span class="op">];</span></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>  <span class="op">};</span></span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h2 id="init-your-first-project">Init your first Project</h2>
-<p>Fine, we basically have everything we need on our system now. Create new project by creating a directory and calling <code>cabal
-   init --interactive</code> in it. (I usually work with cabal, but haskell.nix also plays nicely with stack.)</p>
-<p>After that create a <code>flake.nix</code> alongside your <code>.cabal</code> file basically using <a href="https://input-output-hk.github.io/haskell.nix/tutorials/getting-started-flakes/#scaffolding">this template</a>. Now call <code>nix shell</code> inside this directory. This will take some time while nix is pulling GHC and compiling tools. Make yourself a coffee, maybe two. The first time you are using this ensure that nix doesn’t start compiling GHC. If that’s the case you did not set up the <code>binaryCaches</code> correctly.</p>
-<p>If this works you should be able to call <code>haskell-language-server</code> tailored to your projects GHC version. Nice!</p>
+<p>Fine, we basically have everything we need on our system
+now. Create new project by creating a directory and calling <code>cabal
+   init --interactive</code> in it. (I usually work with cabal, but haskell.nix
+also plays nicely with stack.)</p>
+<p>After that create a <code>flake.nix</code> alongside your <code>.cabal</code> file
+basically using <a href="https://input-output-hk.github.io/haskell.nix/tutorials/getting-started-flakes/#scaffolding">this template</a>. Now call <code>nix shell</code> inside this
+directory. This will take some time while nix is pulling GHC and
+compiling tools. Make yourself a coffee, maybe two. The first time
+you are using this ensure that nix doesn’t start compiling GHC. If
+that’s the case you did not set up the <code>binaryCaches</code> correctly.</p>
+<p>If this works you should be able to call <code>haskell-language-server</code>
+tailored to your projects GHC version. Nice!</p>
 <h2 id="integrate-direnv">Integrate Direnv</h2>
-<p>This is as easy as generating a file <code>.envrc</code> alongside your <code>flake.nix</code> containing:</p>
+<p>This is as easy as generating a file <code>.envrc</code> alongside your
+<code>flake.nix</code> containing:</p>
 <pre class="example"><code>use flake;
 </code></pre>
-<p>After creating this file direnv will ask you to whitelist this project using <code>direnv allow</code>. Do it and <code>nix</code> will start again to produce heat on your CPU. Note that this will only take some time on the first run. Nix caches the results and all subsequent environment loads will be finished in less than a second.</p>
+<p>After creating this file direnv will ask you to whitelist this
+project using <code>direnv allow</code>. Do it and <code>nix</code> will start again to
+produce heat on your CPU. Note that this will only take some time
+on the first run. Nix caches the results and all subsequent
+environment loads will be finished in less than a second.</p>
 <h2 id="set-up-emacs">Set up Emacs</h2>
 <p>This is the snippet defining my Emacs setup:</p>
 <pre class="elisp"><code>(defun tbd-cfg-haskell ()
@@ -133,9 +154,16 @@
 ;; […]
 (tbd-cfg-haskell)
 </code></pre>
-<p>You probably don’t want all of that. But things work smoothly for me with these settings and I’m too lazy to tear them apart to see which ones will provide the bare minimum. If you have enabled <code>services.emacs.enable</code> as me above, then don’t forget to execute <code>systemctl --user restart emacs</code> after altering the config file.</p>
-<p>Spin up your Emacs and visit one of the Haskell source files in your project. If <code>lsp</code> doesn’t start automatically, do <code>M-x lsp</code> and import the project for the first time.</p>
-<p>Eventually Emacs/direnv won’t notice changes you did to the cabal file. Use <code>M-x direnv-update-environment</code> and eventually <code>M-x
+<p>You probably don’t want all of that. But things work smoothly for
+me with these settings and I’m too lazy to tear them apart to see
+which ones will provide the bare minimum. If you have enabled
+<code>services.emacs.enable</code> as me above, then don’t forget to execute
+<code>systemctl --user restart emacs</code> after altering the config file.</p>
+<p>Spin up your Emacs and visit one of the Haskell source files in
+your project. If <code>lsp</code> doesn’t start automatically, do <code>M-x lsp</code>
+and import the project for the first time.</p>
+<p>Eventually Emacs/direnv won’t notice changes you did to the cabal
+file. Use <code>M-x direnv-update-environment</code> and eventually <code>M-x
    lsp-workspace-restart</code> to get back on track then.</p>
     </section>
 </article>
