@@ -37,13 +37,3 @@ executable thomasbach-dev
     main-is:        Main.hs
     build-depends:  hakyll >= 4.15
     hs-source-dirs: app
-
-library
-    import:         general-settings
-    exposed-modules: TextualRepresentationWithWitch.Example1
-                   , TextualRepresentationWithWitch.Example2
-    build-depends:  aeson
-                  , gogol-firestore
-                  , servant
-    hs-source-dirs: snippets
-    ghc-options:    -Wno-missing-home-modules
