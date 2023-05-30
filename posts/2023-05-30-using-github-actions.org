@@ -1,0 +1,65 @@
+---
+title: Deploying my Website using GitHub Actions
+---
+
+I know at this point my website looks like total garbage. Anyways, I am not a frontend guy and
+getting started with CSS is big burden for me to take. It has been a while since my last blog post
+and I got the feeling that I wanted a place to write things and publish. … and the most important
+thing we learned from CI/CD is that it is of uttermost importance to make publishing as easy as
+possible.
+
+So I wanted to use GitHub actions to build and publish my website. I am not sure if this will
+work, but given the fact that I already have a nix flake for this website it should be fairly easy,
+right?
+
+I mostly followed the [[https://nix.dev/tutorials/nixos/build-and-deploy/continuous-integration-github-actions][Cachix tutorial]] and first set up test pipeline:
+
+#+begin_src yaml
+  name: "Test"
+  on:
+    pull_request:
+    push:
+  jobs:
+    tests:
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v20
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - name: Run tests
+        run: |
+          nix develop --command \
+            cabal test
+#+end_src
+
+That worked like a charm: There now is “Workflow” in the “Actions” tab of the repo where the defined
+action is running. It takes quite some time to build it as it is downloading all the dependencies to
+built the project from ~cache.nixos.org~. Furthermore, it does not cache the result yet. So it will
+always need this amount of time when rebuilding. So the next step is to add some form of caching.
+
+So I added this to the end of the ~jobs~ list:
+
+#+begin_src yaml
+      - name: Cache nix store
+        uses: actions/cache@v3
+        with:
+          path: /nix/store
+          key: ${{ hashFiles('flake.lock') }}
+#+end_src
+
+which creates a cache with ~/nix/store~, but restores the cache to late. The workflow will already
+have run the “Run tests” step and downloaded all dependencies. So I moved the action further up,
+above the “Run tests” job. This time I ran into permission problems:
+
+#+begin_example
+  /usr/bin/tar: ../../../../../nix/store/h96aykl4imzhfapnmavplr49v43c8apx-6.2.1-CVE-2021-43618.patch: Cannot open: Permission denied
+  /usr/bin/tar: ../../../../../nix/store/i6rqxzng52gw4hf8b9cq94xc7vmb5jh3-lua-2.1.0: Cannot mkdir: Permission denied
+#+end_example
+
+There are a couple of issues around “Permission denied” errors in the related repository, but none
+of them provide a satisfying solution. I was briefly tempted to just do the whole thing manually --
+run ~sudo chown ${UID} /nix/store~ or something similar. But this seems to be too specific for this
+case. The pipeline doesn't run very long -- it takes about 2 minutes to fetch all dependencies. This
+is good enough for now and I will simply removed the cache stuff.
+
