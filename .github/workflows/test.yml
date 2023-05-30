@@ -14,3 +14,8 @@ jobs:
       run: |
         nix develop --command \
           cabal test
+    - name: Cache nix store
+      uses: actions/cache@v3
+      with:
+        path: /nix/store
+        key: ${{ hashFiles('flake.lock') }}
