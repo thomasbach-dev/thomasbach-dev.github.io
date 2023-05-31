@@ -7,13 +7,16 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        ghcVersion = "90";
         ghcAndPkgs = pkgs.haskellPackages.ghcWithPackages (ps: [
           ps.clay
           ps.hakyll
           ps.witch
         ]);
       in {
+        packages = rec {
+          thomasbach-dev = pkgs.haskellPackages.callPackage (import ./thomasbach-dev.nix) {};
+          default = thomasbach-dev;
+        };
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
             ghcAndPkgs
