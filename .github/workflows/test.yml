@@ -1,9 +1,10 @@
-name: "Test"
+name: "Build and Deploy"
 on:
-  pull_request:
   push:
+    branches:
+      - main
 jobs:
-  tests:
+  build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -14,3 +15,30 @@ jobs:
       run: |
         nix develop --command \
           cabal test
+    - name: Build website
+      run: |
+        nix develop --command \
+          cabal run thomasbach-dev -- --verbose build
+    - name: Upload GitHub Pages Artifact
+      uses: actions/upload-packages-artifact@v1
+      with:
+        path: "docs/"
+
+  deploy:
+    needs: build
+    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+
+    # Deploy to the github-pages environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    # Specify runner + deployment step
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2 # or the latest "vX.X.X" version tag for this action
