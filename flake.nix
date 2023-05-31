@@ -21,7 +21,6 @@
           buildInputs = with pkgs; [
             ghcAndPkgs
             cabal-install
-            haskell-language-server
           ];
         };
       }
