@@ -122,3 +122,7 @@ on the nix flake and reading up on the matter I came up with the following overa
 
 This works and currently publishes this website. Admittedly, it does not look very nice, but it is
 continuously deployed. ;)
+
+However, note that there is some magic involved here: The ~github-pages~ used in
+~jobs:deploy:environment~ was not configured by myself. It was created by an earlier publish of my
+website using the static way.
