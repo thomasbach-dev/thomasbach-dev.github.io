@@ -20,7 +20,7 @@ jobs:
         nix develop --command \
           cabal run thomasbach-dev -- --verbose build
     - name: Upload GitHub Pages Artifact
-      uses: actions/upload-packages-artifact@v1
+      uses: actions/upload-pages-artifact@v1
       with:
         path: "docs/"
 
