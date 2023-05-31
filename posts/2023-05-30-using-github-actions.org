@@ -8,6 +8,8 @@ and I got the feeling that I wanted a place to write things and publish. … and
 thing we learned from CI/CD is that it is of uttermost importance to make publishing as easy as
 possible.
 
+** Setting up a First Pipeline
+
 So I wanted to use GitHub actions to build and publish my website. I am not sure if this will
 work, but given the fact that I already have a nix flake for this website it should be fairly easy,
 right?
@@ -36,9 +38,12 @@ I mostly followed the [[https://nix.dev/tutorials/nixos/build-and-deploy/continu
 That worked like a charm: There now is “Workflow” in the “Actions” tab of the repo where the defined
 action is running. It takes quite some time to build it as it is downloading all the dependencies to
 built the project from ~cache.nixos.org~. Furthermore, it does not cache the result yet. So it will
-always need this amount of time when rebuilding. So the next step is to add some form of caching.
+always need this amount of time when rebuilding.
 
-So I added this to the end of the ~jobs~ list:
+** Trying to Add a Cache
+
+So the next improvement would be to add some form of caching. I added this to the end of the ~jobs~
+list:
 
 #+begin_src yaml
       - name: Cache nix store
@@ -61,5 +66,59 @@ There are a couple of issues around “Permission denied” errors in the relate
 of them provide a satisfying solution. I was briefly tempted to just do the whole thing manually --
 run ~sudo chown ${UID} /nix/store~ or something similar. But this seems to be too specific for this
 case. The pipeline doesn't run very long -- it takes about 2 minutes to fetch all dependencies. This
-is good enough for now and I will simply removed the cache stuff.
+is good enough for now and I simply removed the cache stuff.
 
+** Build and Deploy using GitHub Actions
+
+The next point was to actually build and deploy the site using GitHub Actions. After some tweaking
+on the nix flake and reading up on the matter I came up with the following overall pipeline:
+
+#+begin_src yaml
+  name: "Build and Deploy"
+  on:
+    push:
+      branches:
+        - main
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v20
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - name: Run tests
+        run: |
+          nix develop --command \
+            cabal test
+      - name: Build website
+        run: |
+          nix develop --command \
+            cabal run thomasbach-dev -- --verbose build
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: "docs/"
+
+    deploy:
+      needs: build
+      # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+      permissions:
+        pages: write      # to deploy to Pages
+        id-token: write   # to verify the deployment originates from an appropriate source
+
+      # Deploy to the github-pages environment
+      environment:
+        name: github-pages
+        url: ${{ steps.deployment.outputs.page_url }}
+
+      # Specify runner + deployment step
+      runs-on: ubuntu-latest
+      steps:
+        - name: Deploy to GitHub Pages
+          id: deployment
+          uses: actions/deploy-pages@v2 # or the latest "vX.X.X" version tag for this action
+#+end_src
+
+This works and currently publishes this website. Admittedly, it does not look very nice, but it is
+continuously deployed. ;)
