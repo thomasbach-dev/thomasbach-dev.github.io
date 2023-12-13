@@ -21,6 +21,7 @@
           buildInputs = with pkgs; [
             ghcAndPkgs
             cabal-install
+            ormolu
           ];
         };
       }
