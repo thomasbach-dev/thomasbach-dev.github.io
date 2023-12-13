@@ -1,5 +1,6 @@
 # Hakyll related
 _cache/
+docs/
 
 # Cabal related
 dist-newstyle/
