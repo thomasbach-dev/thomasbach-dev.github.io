@@ -1,0 +1,13 @@
+---
+title: Home
+---
+
+** Welcome
+
+I am a freelancing software engineer and Linux administrator.
+
+Here is a list of my latest blog posts:
+
+$partial("templates/post-list.html")$
+
+…or you can find more in the [[/archive.html][archives]].
