@@ -2,13 +2,10 @@
 title: Contact
 ---
 
-You can email me personally via info at thomasbach dot dev. You can
-find my gpg key [[./static/info-at-thomasbach.dev.pub][here]].
+You can reach out to me by email via ~info at thomasbach dot dev~.
 
-+ [[https://twitter.com/ThomasbachD][Twitter]]
-
+Furthermore, I am more or less active in the following socal networks:
++ [[https://mastodon.online/@thomasbach_dev][Mastodon]]
 + [[https://www.linkedin.com/in/thomas-bach-5bb470148/][LinkedIn]]
-
 + [[https://github.com/thomasbach-dev/][GitHub]]
-
 + [[https://www.reddit.com/user/thomasbach/][Reddit]]

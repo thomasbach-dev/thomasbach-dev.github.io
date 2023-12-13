@@ -4,7 +4,11 @@ title: Home
 
 ** Welcome
 
-I am a freelancing software engineer and Linux administrator.
+I am a software architect and engineer.
++ I work a lot with Linux systems and cloud platforms, doing network and backend things.
++ I usually program in Python, Bash, Haskell and Nix.
++ I like thinking about highly available, resilient system.
++ I like talking about requirements, problems and solution spaces.
 
 Here is a list of my latest blog posts:
 

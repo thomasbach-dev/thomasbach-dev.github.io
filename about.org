@@ -2,14 +2,16 @@
 title: About
 ---
 
-I am a professional software engineer and Linux administrator. (Some
-might say DevOp.) Currently I focus on functional programming
-languages like Haskell, Scala or Nix, but I also wrote Python,
-Shell-Scripts and C code professionally. When it comes to Linux
-systems I have a huge preferrence for NixOS at the moment. But I am
-also very familiar with the Debian family, including Ubuntu.
+I am a freelancing software architect and software engineer. I have a strong background in Linux
+system and network administration where I strongly emphasize systems as code using Ansible,
+Terraform and NixOS.
 
-I am currently living in Ringgau which is a small district in
-Northern-Hesse. That is basically in the middle of Germany.
+I like functional programming languages using Scala and Haskell. I also program in Python a lot and
+-- being a system administrator -- I also write a lot of Shell-Scripts. When it comes to Linux
+systems I personally have a huge preferrence for NixOS. Professionally, I usually work with Debian
+distributions and their derivatives.
+
+I am currently based in the Lower Rhine regine (Niederrhein). This is a rural area in North
+Rhine-Westphalia, Germany.
 
 German is my mothertongue, additionally I speak English and Spanish.
