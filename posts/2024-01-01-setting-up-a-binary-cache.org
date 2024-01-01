@@ -1,0 +1,72 @@
+---
+title: Setting up a Binary Cache for NixOS
+---
+
+I currently have two NixOS machines running in my network one of them - ~kalaw~ - is mainly a file
+server the other one ~pai~ my desktop machine.[fn:1] I once refactored the configuration of these to be
+served from the same git repository. This now caches out extremely well!
+
+I introduced a flake into the configuration of the machine which was quite easy to do:
+#+begin_src nix
+  {
+    inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
+    outputs = { self, nixpkgs }: {
+      nixosConfigurations = {
+        pai = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./configuration-pai.nix
+          ];
+        };
+        kalaw = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./configuration-kalaw.nix
+          ];
+        };
+      };
+    };
+  }
+#+end_src
+
+Since these machines are served from the same git repository they will always run the same base
+system. This means that I can speed things up a bit by introducing a binary cache between the two.
+
+I did not want to use the mechanism described in the [[https://nixos.wiki/wiki/Binary_Cache][NixOS wiki]] using ~nix-serve~ as this would expose my
+entire nix store to the public. I have a port forward going to kalal in order to access the
+Nextcloud instance running there. I could not find a way to introduce an authorization
+mechanism. Instead, I decided to use the somehow underdocumented ~nix.sshServe~ mechanism.
+
+1) Generate a private/public keypair using ~ssh-keygen~. Do not to use a password for this file.
+   Make the file accessible only by root. I saved it in ~/etc/nixos~ and added it to the
+   ~.gitignore~ file to prevent it from leaking into the repository.
+
+2) On ~kalaw~ (i.e. the machin which is supposed to serve the cache), I added
+   #+begin_src nix
+     { ... }:
+     let tbd-lib = import ../tbd-lib.nix;
+     in {
+       nix.sshServe = {
+         enable = true;
+         keys = [ tbd-lib.ssh-keys.nix-ssh-serve-pub ];
+       };
+     }
+   #+end_src
+   where ~tbd-lib.ssh-keys~ contains a mapping of common SSH keys.
+
+3) Then on ~pai~ (i.e. the machine which uses the cache), I added
+   #+begin_src nix
+       nix.settings = {
+         substituters = [ "ssh://nix-ssh@kalaw.fritz.box" ];
+       };
+       programs.ssh.extraConfig = ''
+         Match host kalaw.fritz.box user nix-ssh
+           IdentityFile /etc/nixos/nix_ssh_priv_key
+       '';
+   #+end_src
+
+And that's it!
+
+* Footnotes
+
+[fn:1] I name my machines after places I visited on a trip to south-east asia.
