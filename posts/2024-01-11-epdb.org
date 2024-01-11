@@ -1,0 +1,33 @@
+---
+title: Using epdb to debug distributed services
+---
+
+As I am working a lot on distributed systems, I find myself often in a situation where a bug occurs
+in a program and
+1) I cannot really pinpoint the executing service in the layer or
+2) (more frequently) I cannot easily attach myself to a debugging session using ~pdb~.
+
+Examples for the latter might be, a service which spawns off several processes to distribute load, a
+system service (daemon) which forks after the setup routine or a deeply nested service in a larger
+message passing stack.
+
+This is just the right moment to install [[https://github.com/sassoftware/epdb][epdb]]. Epdb lets you debug a Python program over a network
+socket. A tool which totally seems to fly under the radar. Of course, it is also available on [[https://pypi.org/project/epdb/][PyPI]].
+
+Now, the usage is really simple: install it in the environment where your program is running and add
+#+begin_src python
+  import epdb; epdb.serve()
+#+end_src
+at the location you want to start debugging. Note that you can also pass in a port to ~epdb.serve~.
+
+Run your program and ensure that the program executes the code path where the above statement can be
+found. In a shell execute:
+#+begin_src shell
+  python -c 'import epdb; epdb.connect()'
+#+end_src
+and you will be dropped into a Python debugging interface, just like ~pdb~, but over the network.
+
+I usually start a loop around the command above:
+#+begin_src shell
+  until python3 -c 'import epdb; epdb.connect()'; do sleep 1s; done
+#+end_src
