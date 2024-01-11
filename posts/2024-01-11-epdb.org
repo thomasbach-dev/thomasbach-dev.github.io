@@ -12,7 +12,7 @@ system service (daemon) which forks after the setup routine or a deeply nested s
 message passing stack.
 
 This is just the right moment to install [[https://github.com/sassoftware/epdb][epdb]]. Epdb lets you debug a Python program over a network
-socket. A tool which totally seems to fly under the radar. Of course, it is also available on [[https://pypi.org/project/epdb/][PyPI]].
+socket. A tool which seems to fly below the radar. Of course, it is also available on [[https://pypi.org/project/epdb/][PyPI]].
 
 Now, the usage is really simple: install it in the environment where your program is running and add
 #+begin_src python
