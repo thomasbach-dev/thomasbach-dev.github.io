@@ -2,7 +2,7 @@
 title: Contact
 ---
 
-You can reach out to me by email via ~info at thomasbach dot dev~.
+You can reach out to me by email via ~info at thomasbach dot dev~. You can find my GPG key [[./static/info-at-thomasbach-dev.pub][here]].
 
 Furthermore, I am more or less active in the following socal networks:
 + [[https://mastodon.online/@thomasbach_dev][Mastodon]]
